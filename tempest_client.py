@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def run_authnet_check(card_number, month, year, cvv, proxy_url=None):
     """
-    Execute payment test on AuthNet Gate - LOGICA COMPLETAMENTE NUOVA
+    Execute payment test on AuthNet Gate - MIGLIORATO SUBMIT
     """
     driver = None
     try:
@@ -53,101 +53,94 @@ def run_authnet_check(card_number, month, year, cvv, proxy_url=None):
         time.sleep(3)
         
         # FILL REGISTRATION FORM
-        # Username
-        try:
-            username_field = driver.find_element(By.CSS_SELECTOR, "input[name='user_login']")
-            username_field.send_keys(username)
-        except:
-            pass
+        fields_to_fill = [
+            ("input[name='user_login']", username),
+            ("input[name='first_name']", first_name),
+            ("input[name='last_name']", last_name),
+            ("input[name='user_email']", email),
+            ("input[name='user_pass']", password)
+        ]
         
-        # First Name
-        try:
-            first_name_field = driver.find_element(By.CSS_SELECTOR, "input[name='first_name']")
-            first_name_field.send_keys(first_name)
-        except:
-            pass
-        
-        # Last Name
-        try:
-            last_name_field = driver.find_element(By.CSS_SELECTOR, "input[name='last_name']")
-            last_name_field.send_keys(last_name)
-        except:
-            pass
-        
-        # Email
-        try:
-            email_field = driver.find_element(By.CSS_SELECTOR, "input[name='user_email']")
-            email_field.send_keys(email)
-        except:
-            pass
-        
-        # Password
-        try:
-            password_field = driver.find_element(By.CSS_SELECTOR, "input[name='user_pass']")
-            password_field.send_keys(password)
-        except:
-            pass
+        for selector, value in fields_to_fill:
+            try:
+                field = driver.find_element(By.CSS_SELECTOR, selector)
+                field.clear()
+                field.send_keys(value)
+                print(f"✅ Compilato: {selector}")
+            except:
+                print(f"⚠️ Campo non trovato: {selector}")
         
         # Terms checkbox
         try:
             terms_checkbox = driver.find_element(By.CSS_SELECTOR, "input[name='terms']")
             if not terms_checkbox.is_selected():
                 driver.execute_script("arguments[0].click();", terms_checkbox)
+                print("✅ Terms checkbox selezionato")
         except:
-            pass
+            print("⚠️ Terms checkbox non trovato")
         
         time.sleep(1)
         
         # FILL PAYMENT INFO
-        # Card Number
-        try:
-            card_field = driver.find_element(By.CSS_SELECTOR, "input[name='authorize_net[card_number]']")
-            card_field.send_keys(card_number)
-        except:
-            pass
+        payment_fields = [
+            ("input[name='authorize_net[card_number]']", card_number),
+            ("input[name='authorize_net[exp_month]']", month),
+            ("input[name='authorize_net[exp_year]']", year),
+            ("input[name='authorize_net[cvc]']", cvv)
+        ]
         
-        # Expiry Month
-        try:
-            month_field = driver.find_element(By.CSS_SELECTOR, "input[name='authorize_net[exp_month]']")
-            month_field.send_keys(month)
-        except:
-            pass
-        
-        # Expiry Year
-        try:
-            year_field = driver.find_element(By.CSS_SELECTOR, "input[name='authorize_net[exp_year]']")
-            year_field.send_keys(year)
-        except:
-            pass
-        
-        # CVV
-        try:
-            cvv_field = driver.find_element(By.CSS_SELECTOR, "input[name='authorize_net[cvc]']")
-            cvv_field.send_keys(cvv)
-        except:
-            pass
+        for selector, value in payment_fields:
+            try:
+                field = driver.find_element(By.CSS_SELECTOR, selector)
+                field.clear()
+                field.send_keys(value)
+                print(f"✅ Payment: {selector}")
+            except:
+                print(f"⚠️ Payment field non trovato: {selector}")
         
         # Manual Payment
         try:
             manual_field = driver.find_element(By.CSS_SELECTOR, "input[value*='manual']")
             if not manual_field.is_selected():
                 driver.execute_script("arguments[0].click();", manual_field)
+                print("✅ Manual Payment selezionato")
         except:
-            pass
+            print("⚠️ Manual Payment non trovato")
         
         time.sleep(2)
         
-        # SUBMIT
-        try:
-            submit_btn = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-            driver.execute_script("arguments[0].click();", submit_btn)
-        except:
-            pass
+        # SUBMIT MIGLIORATO - PROVA TUTTI I BOTTONI POSSIBILI
+        submit_selectors = [
+            "button[type='submit']",
+            "input[type='submit']", 
+            "#submit",
+            ".arm_form_submit_btn",
+            "button[name='arm_action']"
+        ]
+        
+        submitted = False
+        for selector in submit_selectors:
+            try:
+                submit_btn = driver.find_element(By.CSS_SELECTOR, selector)
+                if submit_btn.is_displayed() and submit_btn.is_enabled():
+                    print(f"✅ Trovato submit: {selector}")
+                    driver.execute_script("arguments[0].scrollIntoView(true);", submit_btn)
+                    time.sleep(1)
+                    driver.execute_script("arguments[0].click();", submit_btn)
+                    print("✅ Form inviato!")
+                    submitted = True
+                    break
+            except:
+                continue
+        
+        if not submitted:
+            print("❌ Nessun bottone submit trovato")
+            return "ERROR", "No submit button found"
         
         print("🔄 Processing payment...")
-        time.sleep(10)
+        time.sleep(12)  # Aumentato il tempo di attesa
         
-        # ANALYZE RESULT - LOGICA COMPLETAMENTE NUOVA
+        # ANALYZE RESULT
         current_url = driver.current_url
         page_text = driver.page_source.lower()
         
@@ -175,17 +168,29 @@ def run_authnet_check(card_number, month, year, cvv, proxy_url=None):
                 print(f"❌ DECLINED - {pattern}")
                 return "DECLINED", pattern.title()
         
-        # 4. CONTROLLA SE SIAMO ANCORA IN REGISTRATION
+        # 4. CONTROLLA ERRORI VISIBILI
+        try:
+            error_elements = driver.find_elements(By.CSS_SELECTOR, ".error, .notice-error, .alert-danger")
+            for element in error_elements:
+                if element.is_displayed():
+                    error_text = element.text.lower()
+                    if any(word in error_text for word in ['declined', 'invalid', 'failed', 'error']):
+                        print(f"❌ DECLINED - Errore: {error_text}")
+                        return "DECLINED", error_text[:80]
+        except:
+            pass
+        
+        # 5. SE SIAMO ANCORA IN REGISTRATION
         if 'register' in current_url:
             print("❌ DECLINED - Ancora in registrazione")
-            return "DECLINED", "Payment failed - Still on registration"
+            return "DECLINED", "Payment failed - Form not submitted"
         
-        # 5. SE SIAMO SU UNA PAGINA DIVERSA, È SUCCESSO
+        # 6. SE SIAMO SU UNA PAGINA DIVERSA, È SUCCESSO
         if 'tempestprotraining.com' in current_url and 'register' not in current_url:
             print("✅ APPROVED - Pagina diversa da registrazione")
             return "APPROVED", "Payment processed successfully"
         
-        # 6. DEFAULT: DECLINED
+        # 7. DEFAULT: DECLINED
         print("❌ DECLINED - Nessun indicatore di successo")
         return "DECLINED", "Payment failed - No success indicators"
                 
