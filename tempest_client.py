@@ -503,3 +503,4 @@ Tier: {bin_data.get('tier', 'N/A')}"""
         logger.error(f"❌ Error in authnet_command: {e}")
         await wait_message.edit_text(f"❌ Error: {str(e)}")
 
+
