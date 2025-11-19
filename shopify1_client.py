@@ -6,6 +6,7 @@ from selenium.webdriver.chrome.options import Options
 import random
 import time
 import logging
+import re  # AGGIUNTO IMPORT MANCANTE
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -224,7 +225,7 @@ class Shopify1CheckoutAutomation:
             return False
     
     def analyze_result(self):
-        """Analizza risultato - LOGICA COMPLETAMENTE NUOVA"""
+        """Analizza risultato"""
         print("🔍 ANALISI RISULTATO SHOPIFY...")
         
         try:
